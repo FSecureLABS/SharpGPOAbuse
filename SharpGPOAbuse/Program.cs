@@ -689,7 +689,7 @@ Revision = 1
                 if (exists)
                 {
                     // Curently there is no support for appending user rightsto exisitng ones
-                    Console.WriteLine("[+] The GPO already specifies user rights. Select a different attack.");
+                    Console.WriteLine("[!] The GPO already specifies user rights. Select a different attack.\n[!] Exiting...");
                     System.Environment.Exit(0);
                 }
 
